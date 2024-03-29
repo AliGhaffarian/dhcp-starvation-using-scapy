@@ -13,6 +13,23 @@ IP_GLOBAL_BROADCAST='255.255.255.255'
 args = SimpleNamespace()
 args.debug=False
 
+DHCP_ATTRIBUTES = {
+    'MESSAGETYPES' : {
+        'DISCOVER' : 1,
+        'OFFER' : 2,
+        'REQUEST' : 3,
+        'DECLINE' : 4,
+        'ACK' : 5,
+        'NACK' : 6,
+        'RELEASE' : 7,
+        'INFORM' : 8
+    }
+}
+
+
+
+
+
 def random_transaction_id():
     """
     makes a random transaction ID
@@ -83,6 +100,8 @@ def dhcp_discover(src_mac : str, interface : str):
                         / DHCP(options=dhcp_options)
     sendp(discover_packet, iface=interface)   
 
+
+
 def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str, result_list = None):
     """
     Gets a MAC and server IP
@@ -113,9 +132,18 @@ def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str, res
     return None
     
 
-def is_dhcp_offer(packet)->bool:
+def is_dhcp_ack(packet)->bool:
+    return is_dhcp_msg_type_eq(packet, DHCP_ATTRIBUTES['MESSAGETYPES']['ACK'])
+
+def is_dhcp_offer( packet )->bool:
+    """
+    message type of offer is 2
+    """
+    return is_dhcp_msg_type_eq(packet, DHCP_ATTRIBUTES['MESSAGETYPES']['OFFER'])
+
+def is_dhcp_msg_type_eq(packet, value : int )->bool:
     """ 
-    Returns true if the dhcp is a Offer
+    Returns true if message type field of dhcp pdu is equal to value
     """  
     function_name = inspect.currentframe().f_code.co_name
 
@@ -134,7 +162,7 @@ def is_dhcp_offer(packet)->bool:
 
     if(args.debug):
             print(f"{function_name} : message-type if in {message_type_index}th index of {packet}")
-    return packet[DHCP].options[message_type_index][1] == 2 # 2 == dhcp Offer
+    return packet[DHCP].options[message_type_index][1] == value 
 
 def is_for_my_mac(mac : str, packet):
     function_name = inspect.currentframe().f_code.co_name
