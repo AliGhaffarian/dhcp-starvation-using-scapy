@@ -13,19 +13,18 @@ IP_GLOBAL_BROADCAST='255.255.255.255'
 args = SimpleNamespace()
 args.debug=False
 
-DHCP_ATTRIBUTES = {
-    'MESSAGETYPES' : {
-        'DISCOVER' : 1,
-        'OFFER' : 2,
-        'REQUEST' : 3,
-        'DECLINE' : 4,
-        'ACK' : 5,
-        'NACK' : 6,
-        'RELEASE' : 7,
-        'INFORM' : 8
-    }
-}
+class MESSAGETYPE:
+    DISCOVER = 1
+    OFFER = 2
+    REQUEST = 3
+    DECLINE = 4
+    ACK = 5
+    NACK = 6
+    RELEASE = 7
+    INFORM = 8
 
+class DHCP_ATTS:
+    MSGTYPE = MESSAGETYPE()
 
 
 
@@ -100,10 +99,9 @@ def dhcp_discover(src_mac : str, interface : str):
                         / DHCP(options=dhcp_options)
     sendp(discover_packet, iface=interface)   
 
-
-
 def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str, result_list = None):
     """
+    TODO add ether dst to sniff filter
     Gets a MAC and server IP
     tries to Capture DHCP responses for the provided MAC
     """
@@ -133,13 +131,17 @@ def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str, res
     
 
 def is_dhcp_ack(packet)->bool:
-    return is_dhcp_msg_type_eq(packet, DHCP_ATTRIBUTES['MESSAGETYPES']['ACK'])
+    if is_bootp_reply(packet) == False : 
+        return False
+    return is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.ACK)
 
 def is_dhcp_offer( packet )->bool:
     """
     message type of offer is 2
     """
-    return is_dhcp_msg_type_eq(packet, DHCP_ATTRIBUTES['MESSAGETYPES']['OFFER'])
+    if is_bootp_reply(packet) == False : 
+        return False
+    return is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.OFFER)
 
 def is_dhcp_msg_type_eq(packet, value : int )->bool:
     """ 
@@ -152,8 +154,7 @@ def is_dhcp_msg_type_eq(packet, value : int )->bool:
             print(f"{function_name} : {packet} is not DHCP")
         return False
 
-    if is_bootp_reply(packet) == False : 
-        return False
+    
 
     message_type_index = find_dhcp_option('message-type', packet[DHCP])
 
@@ -206,6 +207,8 @@ def is_bootp_reply(packet)->bool:
 def starve_ips( server_ip : str, server_mac : str , interface : str,ips_to_starve : int = 5)->List[Tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
+    TODO option to keep alive ip's while starving
+    TODO warn about NACKs
     starves ips at the given interface and returns a list of (ip, mac, interface) that are occupied in
     this starvation session
     """
