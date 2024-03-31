@@ -17,6 +17,8 @@ def handle_args(args):
     parser.add_argument('--ips_to_starve', type=int, required=True,help='Required Amount of IPs to occupy')
     parser.add_argument('--server_mac', help='MAC address of the server')
     parser.add_argument('--interface', required=False, help=f"Network interface to use. Will use {conf.iface} (conf.iface) in case none provided")
+    parser.add_argument('--keep_alive_while_starving', action='store_true', required=False, help=f"Keep starved IP's alive while starvation")
+    parser.add_argument('--keep_alive', action='store_true',required=False, help=f"Keep starved IP's alive after starvation")
     
 
     return parser.parse_args()
@@ -43,5 +45,7 @@ if(len(occupied_ips) == 0):
     print('[-]No ip occupied')
     exit(1)
 
-dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
+    
+if dhcp.args.keep_alive :
+    dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
 
