@@ -29,6 +29,7 @@ class DHCP_ATTS:
 """
 TODO make mac templates
 TODO verbose flag
+TODO option to write pcap
 """
 
 
@@ -104,6 +105,7 @@ def dhcp_discover(src_mac : str, interface : str = conf.iface):
 
 def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = conf.iface , result_list = None):
     """
+    TODO make a function for filtering and honoring debug flag
     Gets a MAC and server IP
     tries to Capture DHCP responses for the provided MAC
     """
@@ -114,12 +116,13 @@ def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = co
         print(f"{function_name} : sniffing on interface {interface}")
     
 
-    res = sniff(count=25, filter = f"udp and ether src {server_mac}", timeout=4, iface=interface)
+    res = sniff(count=1, filter = f"udp and ether src {server_mac}", timeout=4, iface=interface,\
+            lfilter= lambda packet : is_dhcp_offer(packet))
 
     if (args.debug):
         print(f"{function_name} : captured {res}")
     
-    #see if theres a dhcp response for me
+    #keep for debug flag
     for packet in res:
         if(is_for_my_mac(dest_mac, packet) and is_dhcp_offer(packet)):
             result_list[0] = packet
@@ -163,7 +166,7 @@ def is_dhcp_msg_type_eq(packet, value : int )->bool:
     if message_type_index == -1 : return False
 
     if(args.debug):
-            print(f"{function_name} : message-type if in {message_type_index}th index of {packet}")
+            print(f"{function_name} : message-type in {message_type_index}th index of {packet}")
     return packet[DHCP].options[message_type_index][1] == value 
 
 def is_for_my_mac(mac : str, packet):
@@ -193,7 +196,7 @@ def is_bootp_reply(packet)->bool:
     """
     function_name = inspect.currentframe().f_code.co_name
 
-    if BOOTP in packet == False : 
+    if BOOTP not in packet: 
         if(args.debug):
             print(f"{function_name} : {packet} is not BOOTP_Reply")
         return False
@@ -282,6 +285,7 @@ def keep_ips_alive_icmp(devices : List[Tuple[str,str]], dhcp_server_ip : str, dh
         time.sleep(2)
         for device in devices:
             sendp_icmp(dst_ip=dhcp_server_ip, dst_mac=dhcp_server_mac,src_ip=device[0], src_mac=device[1], interface=device[2])
+
 
 
 
