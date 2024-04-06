@@ -15,7 +15,7 @@ args = SimpleNamespace()
 args.debug=False
 args.keep_alive=False
 args.keep_alive_while_starving=False
-class MESSAGETYPE:
+class MESSAGETYPE_DHCP:
     DISCOVER = 1
     OFFER = 2
     REQUEST = 3
@@ -26,7 +26,7 @@ class MESSAGETYPE:
     INFORM = 8
 
 class DHCP_ATTS:
-    MSGTYPE = MESSAGETYPE()
+    MSGTYPE = MESSAGETYPE_DHCP()
 
 class FLAGS_BOOTP:
     BROADCAST = 0x8000
@@ -291,7 +291,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         print(f"{function_name} : attempt {i} captured {len(occupied_ips)} IP's time_to_wait {time_to_wait}")
         i += 1
 
-        mac_template = mac.macs[random.randint(0,len(mac.macs) - 1)][1]
+        mac_template = mac.macs[random.randint(0,len(mac.macs) - 1)][0]
 
         temp_mac = str(RandMAC(mac_template))
 

@@ -45,7 +45,8 @@ if(len(occupied_ips) == 0):
     print('[-]No ip occupied')
     exit(1)
 
-    
+
 if dhcp.args.keep_alive :
-    dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
+    while(True):
+        dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
 
