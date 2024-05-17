@@ -19,18 +19,12 @@ args.keep_alive=False
 args.keep_alive_while_starving=False
 args.sniff_interface = conf.iface
 args.ttl = 5
-class MESSAGETYPE_DHCP:
-    DISCOVER = 1
-    OFFER = 2
-    REQUEST = 3
-    DECLINE = 4
-    ACK = 5
-    NAK = 6
-    RELEASE = 7
-    INFORM = 8
+
+def get_dhcp_type_value(dhcp_type : str):
+    return next((k for k, v in DHCPTypes.items() if v == dhcp_type), None)
+    
 
 class DHCP_ATTS:
-    MSGTYPE = MESSAGETYPE_DHCP()
     CLIENT_PORT  = 68
     SERVER_PORT  = 67
 
@@ -42,6 +36,7 @@ class BOOTP_ATTS:
 """
 TODO option to write pcap
 TODO option to get replies without being promisc
+TODO is in network scapy
 """
 
 
@@ -203,21 +198,21 @@ def is_dhcp_ack(packet)->bool:
     if(is_dhcp(packet) == False):
         return False
 
-    return is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.ACK)
+    return is_dhcp_msg_type_eq(packet, get_dhcp_type_value("ack"))
 
 def is_dhcp_offer( packet )->bool:
     """
     return is_bootp_reply(packet) and
-        is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.OFFER) 
+        is_dhcp_msg_type_eq(packet, get_dhcp_type_value("offer")) 
     """
 
     return is_bootp_reply(packet) and\
-        is_dhcp_msg_type_eq(packet, DHCP_ATTS.MSGTYPE.OFFER) 
+            is_dhcp_msg_type_eq(packet, get_dhcp_type_value("offer")) 
 
 def is_dhcp_msg_type_eq(packet, value : int )->bool:
     """
     Won't check if packet is dhcp the caller must do it 
-    Returns true if message type field of dhcp pdu is equal to value
+    Searches for dhcp option field and then returns true if message type field of dhcp pdu is equal to value
     """  
     function_name = inspect.currentframe().f_code.co_name
 
