@@ -15,23 +15,24 @@ logger = logging.getLogger()
 IP_GLOBAL_BROADCAST='255.255.255.255'
 
 args = SimpleNamespace()
-args.debug=False
 args.keep_alive=False
 args.keep_alive_while_starving=False
 args.sniff_interface = conf.iface
-
+args.ttl = 5
 class MESSAGETYPE_DHCP:
     DISCOVER = 1
     OFFER = 2
     REQUEST = 3
     DECLINE = 4
     ACK = 5
-    NACK = 6
+    NAK = 6
     RELEASE = 7
     INFORM = 8
 
 class DHCP_ATTS:
     MSGTYPE = MESSAGETYPE_DHCP()
+    CLIENT_PORT  = 68
+    SERVER_PORT  = 67
 
 class FLAGS_BOOTP:
     BROADCAST = 0x8000
@@ -39,12 +40,8 @@ class BOOTP_ATTS:
     FLAGS = FLAGS_BOOTP()
 
 """
-TODO verbose flag
 TODO option to write pcap
-TODO use python buit-in logger
-TODO check keep alive while starving
 TODO option to get replies without being promisc
-TODO vendor id in dhcp
 """
 
 
@@ -89,8 +86,8 @@ def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, tr
 
 
     releaseMyIp = Ether(dst=server_mac, src=src_mac)\
-                    / IP(dst=server_ip,src=ip,ttl=5)\
-                    / UDP(dport=67,sport=68)\
+                    / IP(dst=server_ip,src=ip,ttl=args.ttl)\
+                    / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                     / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
                     / DHCP(options=dhcp_options)
     
@@ -108,8 +105,8 @@ def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : 
     
 
     request_packet = Ether(dst=ETHER_BROADCAST, src=device_mac, type=ETHER_TYPES.IPv4)\
-                    / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=5)\
-                    / UDP(dport=67,sport=68)\
+                    / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=args.ttl)\
+                    / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                     / BOOTP(htype=1,op=1,chaddr=mac_to_binary(device_mac), hops = 2, xid = transaction_id)\
                     / DHCP(options=dhcp_options)
     if(args.debug):
@@ -124,7 +121,7 @@ def dhcp_discover(src_mac : str, interface : str = conf.iface):
     dhcp_options = [('message-type', 'discover'), ('client_id', src_mac), ('param_req_list', [1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252]),('end')]
     discover_packet = Ether(dst = ETHER_BROADCAST, src=src_mac, type=ETHER_TYPES.IPv4)\
                         / IP(dst=IP_GLOBAL_BROADCAST, src='0.0.0.0')\
-                        / UDP(dport=67,sport=68)\
+                        / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                         / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = BOOTP_ATTS.FLAGS.BROADCAST)\
                         / DHCP(options=dhcp_options)
     sendp(discover_packet, iface=interface)   

@@ -4,9 +4,7 @@ import argparse
 from scapy.all import getmacbyip, conf
 import logging
 #TODO
-# make simple logger
 # sleep time of keep alive
-# log level
 
 logger = logging.getLogger()
 #shutting the 1 packet sent msgs
@@ -35,14 +33,16 @@ def handle_args(args):
                         warning = {logging.WARNING}
                         error = {logging.ERROR}
                         critical = {logging.CRITICAL}
-                        will use info if none provided""", default="info")
-
-    return parser.parse_args()
+                        will use info if none provided""", default=20, type=int)
+    parser.add_argument('--keep_alive_sleep_time', help="amount of time between a wave of icmps for keeping alive", default=0, type = int)
+    args = parser.parse_args()
+    args.ttl = 5
+    return args
 
 
 dhcp.args=handle_args(sys.argv)
-logging.basicConfig(filename=dhcp.args.log_file, level=int(dhcp.args.log_level))
-
+logging.basicConfig(filename=dhcp.args.log_file, level=dhcp.args.log_level)
+logger.debug(dhcp.args)
 if dhcp.args.server_mac is None:
     dhcp.args.server_mac = getmacbyip(dhcp.args.server_ip)
     if dhcp.args.server_mac is None:
@@ -65,4 +65,4 @@ if(len(occupied_ips) == 0):
 if dhcp.args.keep_alive :
     while(True):
         dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
-
+        time.sleep(dhcp.args.keep_alive_sleep_time)
