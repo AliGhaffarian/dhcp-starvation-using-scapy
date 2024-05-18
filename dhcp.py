@@ -263,11 +263,11 @@ def is_bootp_reply(packet)->bool:
     """
     function_name = inspect.currentframe().f_code.co_name
 
+    logger.debug(f"{function_name} : {packet} packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY is {packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY}")
     if(is_bootp(packet) == False):
         return False
 
     #is a BOOTPREPLY
-    logger.debug(f"{function_name} : {packet} packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY is {packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY}")
     return packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY
 
 
