@@ -30,15 +30,26 @@ class DHCP_ATTS:
 
 class FLAGS_BOOTP:
     BROADCAST = 0x8000
+
+class BOOTP_OP_CODES:
+    BOOTREQUEST : int = 1
+    BOOTREPLY : int = 2
+
+class BOOTP_HTYPE:
+    ETHERNET : int = 1
+
 class BOOTP_ATTS:
     FLAGS = FLAGS_BOOTP()
+    OP_CODE = BOOTP_OP_CODES()
+    HTYPE = BOOTP_HTYPE()
 
 """
 TODO option to write pcap
 TODO option to get replies without being promisc (wireless)
 TODO is in network scapy
-refactor BOOTP packet construction
-check for dhcp ack
+TODO refactor BOOTP packet construction
+TODO check for dhcp ack
+TODO dynamically use htype (hw type) in bootp field
 """
 
 
@@ -86,7 +97,7 @@ def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, tr
     dhcp_release_packet = Ether(dst=server_mac, src=src_mac)\
                     / IP(dst=server_ip,src=ip,ttl=args.ttl)\
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
-                    / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
+                    / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST, chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
                     / DHCP(options=dhcp_options)
     
     logger.info(f"{function_name} : sending dhcp release from {ip},{src_mac} to {server_ip},{server_mac} via {interface}")
@@ -104,7 +115,7 @@ def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : 
     request_packet = Ether(dst=ETHER_BROADCAST, src=device_mac, type=ETHER_TYPES.IPv4)\
                     / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=args.ttl)\
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
-                    / BOOTP(htype=1,op=1,chaddr=mac_to_binary(device_mac), hops = 2, xid = transaction_id)\
+                    / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST, chaddr=mac_to_binary(device_mac), hops = 2, xid = transaction_id)\
                     / DHCP(options=dhcp_options)
     logger.info(f"{function_name} : sending dhcp request for {ip} to {server_ip}, via {interface}")
     sendp(request_packet, iface=interface)
@@ -118,7 +129,7 @@ def dhcp_discover(src_mac : str, interface : str = conf.iface):
     discover_packet = Ether(dst = ETHER_BROADCAST, src=src_mac, type=ETHER_TYPES.IPv4)\
                         / IP(dst=IP_GLOBAL_BROADCAST, src='0.0.0.0')\
                         / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
-                        / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = BOOTP_ATTS.FLAGS.BROADCAST)\
+                        / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST ,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = BOOTP_ATTS.FLAGS.BROADCAST)\
                         / DHCP(options=dhcp_options)
     sendp(discover_packet, iface=interface)   
 
@@ -256,8 +267,8 @@ def is_bootp_reply(packet)->bool:
         return False
 
     #is a BOOTPREPLY
-    logger.debug(f"{function_name} : {packet} packet[BOOTP].op == 2 is {packet[BOOTP].op == 2}")
-    return packet[BOOTP].op == 2
+    logger.debug(f"{function_name} : {packet} packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY is {packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY}")
+    return packet[BOOTP].op == BOOTP_ATTS.OP_CODE.BOOTREPLY
 
 
 

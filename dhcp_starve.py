@@ -3,6 +3,7 @@ import sys
 import argparse
 from scapy.all import getmacbyip, conf
 import logging
+import time
 #TODO fix no interface selection from arg
 logger = logging.getLogger()
 #shutting the 1 packet sent msgs
