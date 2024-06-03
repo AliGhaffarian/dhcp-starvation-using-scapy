@@ -243,7 +243,7 @@ def is_for_my_mac(mac : str, packet):
     logger.debug(f"{function_name} : {packet} is destined for {packet[Ether].dst} and provided mac is {mac}")
     return packet[Ether].dst == mac
 
-def find_dhcp_option(option : str, dhcp_pdu : DHCP):
+def find_dhcp_option(option : str, dhcp_pdu : DHCP)->int:
     """
     Doesnt check is pdu is dhcp
     Gets a DHCP PDU and a MAC
@@ -275,7 +275,6 @@ def is_bootp_reply(packet)->bool:
 def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5)->list[tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
-    TODO option to keep alive ip's while starving
     TODO warn about NAKs
     starves ips at the given interface and returns a list of (ip, mac, interface) that are occupied in
     this starvation session
