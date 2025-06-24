@@ -88,7 +88,7 @@ def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, tr
         
     return dhcp_release_packet
 
-def dhcp_request( ip : str, device_mac : str, transaction_id : hex, server_ip : str):
+def dhcp_request( ip : str, device_mac : str, transaction_id, server_ip : str):
     """
     returns a DHCP request with the source being the args
     """
@@ -352,7 +352,3 @@ def keep_ips_alive_icmp(devices : list[tuple[str,str]], dhcp_server_ip : str, dh
     
     for device in devices:
         sendp_icmp(dst_ip=dhcp_server_ip, dst_mac=dhcp_server_mac,src_ip=device[0], src_mac=device[1], interface=device[2])
-
-
-
-
