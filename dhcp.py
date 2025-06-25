@@ -1,4 +1,4 @@
-from scapy.all import (Ether, ETHER_TYPES, ETHER_BROADCAST, sendp, BOOTP, DHCP, IP, UDP, conf, RandMAC, sniff, DHCPTypes)
+from scapy.all import *
 import time
 import binascii
 import threading
