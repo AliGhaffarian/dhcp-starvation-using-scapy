@@ -9,8 +9,8 @@ from scapy.all import *
 
 #test sending packets by sniffing on loopback 
 udp_template = IP()/UDP()
-dhcp_offer = udp_template/BOOTP(op = dhcp.BOOTP_ATTS.OP_CODE.BOOTREPLY)/DHCP(options = [("message-type", "offer")])
-dhcp_request = udp_template/BOOTP(op = dhcp.BOOTP_ATTS.OP_CODE.BOOTREQUEST)/DHCP(options = [("message-type", "request")])
+dhcp_offer = udp_template/BOOTP(op = 'BOOTREPLY')/DHCP(options = [("message-type", "offer")])
+dhcp_request = udp_template/BOOTP(op = 'BOOTREQUEST')/DHCP(options = [("message-type", "request")])
 
 
 bad_dhcp_list = []
