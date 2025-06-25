@@ -79,7 +79,7 @@ def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, tr
 
 
     dhcp_release_packet = Ether(dst=server_mac, src=src_mac)\
-                    / IP(dst=server_ip,src=ip,ttl=args.ttl)\
+                    / IP(dst=server_ip,src=ip,ttl=args.ttl, type = 'IPv4')\
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                     / BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTPREQUEST', chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
                     / DHCP(options=dhcp_options)
@@ -96,7 +96,7 @@ def dhcp_request( ip : str, device_mac : str, transaction_id, server_ip : str):
     dhcp_options= [('message-type','request'), ('client_id', device_mac), ('requested_addr', ip),('server_id', server_ip),('end')]
     
 
-    request_packet = Ether(dst=ETHER_BROADCAST, src=device_mac, type=ETHER_TYPES.IPv4)\
+    request_packet = Ether(dst=ETHER_BROADCAST, src=device_mac, type='IPv4')\
                     / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=args.ttl)\
                     / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                     / BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTREQUEST', chaddr=mac_to_binary(device_mac), xid = transaction_id)\
@@ -110,7 +110,7 @@ def dhcp_discover(src_mac : str):
     """
     
     dhcp_options = [('message-type', 'discover'), ('client_id', src_mac), ('param_req_list', [1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252]),('end')]
-    discover_packet = Ether(dst = ETHER_BROADCAST, src=src_mac, type=ETHER_TYPES.IPv4)\
+    discover_packet = Ether(dst = ETHER_BROADCAST, src=src_mac, type='IPv4')\
                         / IP(dst=IP_GLOBAL_BROADCAST, src='0.0.0.0')\
                         / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
                         / BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTREQUEST' ,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = 'B')\
@@ -339,7 +339,7 @@ def sendp_icmp(src_ip : str, src_mac : str, dst_ip : str, dst_mac : str, interfa
     
     function_name = inspect.currentframe().f_code.co_name
     
-    packet = Ether(dst = dst_mac, src = src_mac , type=ETHER_TYPES.IPv4)\
+    packet = Ether(dst = dst_mac, src = src_mac , type='IPv4')\
             / IP(src = src_ip, dst = dst_ip)\
             / ICMP()
     logger.debug(f"{function_name} : sending {packet} to {dst_ip},{dst_mac} via {interface}")
