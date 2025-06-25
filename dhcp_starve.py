@@ -34,7 +34,6 @@ def handle_args(args):
                         will use info if none provided""", default=20, type=int)
     parser.add_argument('--keep_alive_sleep_time', help="amount of time between a wave of icmps for keeping alive", default=0, type = int)
     args = parser.parse_args()
-    args.ttl = 5
     if args.debug:
         args.log_level = 10
     if args.server_mac is None:
