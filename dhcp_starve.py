@@ -1,9 +1,10 @@
-import dhcp
 import sys
 import argparse
 from scapy.all import getmacbyip, conf
 import logging
 import time
+import keepalive
+import dhcp
 logger = logging.getLogger()
 #shutting the 1 packet sent msgs
 conf.verb = 0
@@ -49,13 +50,19 @@ def handle_args(args):
     return args
 
 if __name__ == "__main__":
-    dhcp.args=handle_args(sys.argv)
+    args = handle_args(sys.argv)
+    dhcp.args = args
 
-    logging.basicConfig(filename=dhcp.args.log_file, level=dhcp.args.log_level)
+    logging.basicConfig(filename=args.log_file, level=args.log_level)
 
-    logger.debug(dhcp.args)
+    logger.debug(args)
 
-    occupied_ips = dhcp.starve_ips(dhcp.args.server_ip, dhcp.args.server_mac, conf.iface, dhcp.args.sniff_interface,dhcp.args.ips_to_starve )
+    occupied_ips = dhcp.starve_ips(args.server_ip,
+                                   args.server_mac,
+                                   conf.iface,
+                                   args.sniff_interface,
+                                   args.ips_to_starve,
+                                   args.keep_alive)
     logger.info('Got these IPs')
     for ip in occupied_ips:
         logger.info(ip)
@@ -64,7 +71,7 @@ if __name__ == "__main__":
         exit(1)
 
 
-    if dhcp.args.keep_alive :
+    if args.keep_alive :
         while(True):
-            dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
+            keepalive.keep_ips_alive_icmp(occupied_ips, args.server_ip, args.server_mac)
             time.sleep(dhcp.args.keep_alive_sleep_time)
