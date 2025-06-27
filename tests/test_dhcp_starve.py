@@ -20,8 +20,6 @@ DHCP_SERVER_VETH_NAME=f'{VETH_PAIR_PREFIX}_2'
 ATTACKER_VETH_NAME=f'{VETH_PAIR_PREFIX}_1'
 DHCP_SERVER_INTERFACE_IP=TEST_SUBNET[1]
 
-dhcp.args.sniff_interface = ATTACKER_VETH_NAME
-
 WAS_DHCP_SERVER_RUNNING_BEFORE_TESTING=0
 def config_and_run_dhcp_server():
     global WAS_DHCP_SERVER_RUNNING_BEFORE_TESTING
@@ -99,10 +97,10 @@ if __name__ == "__main__":
             server_ip = str(DHCP_SERVER_INTERFACE_IP), 
             server_mac = server_mac,
             interface = ATTACKER_VETH_NAME,
-            sniff_interface = ATTACKER_VETH_NAME,
             ips_to_starve = IPS_TO_STARVE
             )
 
+    print(occupied_ips)
     assert len(occupied_ips) == IPS_TO_STARVE
     for dhcp_entry in occupied_ips:
         current_occupied_ip = ipaddress.IPv4Address(dhcp_entry[0])

