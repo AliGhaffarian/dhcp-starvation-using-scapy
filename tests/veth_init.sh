@@ -20,17 +20,17 @@ if [ $# -ne 3 ];then
 fi
 
 command="ip link add ${INTERFACE}_1 type veth peer name ${INTERFACE}_2"
-sudo $command
+$command
 if_err_exit $?
 
 command="ip addr add $IP_ADDR/$NET_MASK dev ${INTERFACE}_2"
-sudo $command
+$command
 if_err_exit $?
 
 command="ip link set ${INTERFACE}_1 up"
-sudo $command
+$command
 if_err_exit $?
 
 command="ip link set ${INTERFACE}_2 up"
-sudo $command
+$command
 if_err_exit $?
