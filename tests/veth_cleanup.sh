@@ -4,8 +4,8 @@ if_err_exit () {
 
 	if [ $1 -ne 0 ];then
 			echo $ERROR_TEMPLATE $command err_code : $1
+			exit $1
 	fi
-
 }
 
 
