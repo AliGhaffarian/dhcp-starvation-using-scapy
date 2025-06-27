@@ -12,8 +12,8 @@ if_err_exit () {
 ERROR_TEMPLATE="failed to"
 INTERFACE="$1"
 
-if [ $# -ne 3 ];then
-		echo  usage : $0 interface_name ip_address netmask 
+if [ $# -ne 1 ];then
+		echo  usage : $0 interface_name
 		exit 1
 fi
 
