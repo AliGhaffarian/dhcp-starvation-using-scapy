@@ -19,7 +19,7 @@ def handle_args(args):
     parser.add_argument('--server_ip', required=True, help='Required IP address of the server')
     parser.add_argument('--ips_to_starve', type=int, required=True,help='Required Amount of IPs to occupy')
     parser.add_argument('--server_mac', help='MAC address of the server')
-    parser.add_argument('--sniff_interface', required=False, help=f"Network interface to sniff on. Will use {conf.iface} (conf.iface) in case none provided", default = conf.iface)    
+    parser.add_argument('--sniff_interface', required=False, help=f"Network interface to sniff on. Will use --interface by default")
     parser.add_argument('--interface', required=False, help=f"Network interface to use. Will use {conf.iface} (conf.iface) in case none provided", default = conf.iface)
     parser.add_argument('--keep_alive_while_starving', action='store_true', required=False, help=f"Keep starved IP's alive while starvation")
     parser.add_argument('--keep_alive', action='store_true',required=False, help=f"Keep starved IP's alive after starvation")
@@ -36,6 +36,8 @@ def handle_args(args):
     args = parser.parse_args()
     args.ttl = 64
     conf.iface = args.interface
+    if not args.sniff_interface:
+        args.interface
     if args.debug:
         args.log_level = 10
     if args.server_mac is None:
