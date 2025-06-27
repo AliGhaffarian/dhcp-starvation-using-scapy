@@ -15,24 +15,10 @@ IP_ADDR="$2"
 NET_MASK="$3"
 
 if [ $# -ne 3 ];then
-		echo  usage : interface_name ip_address netmask 
+		echo  usage : $0 interface_name ip_address netmask 
 		exit 1
 fi
 
-command="sudo modprobe dummy"
+command="ip link del ${INTERFACE}_1 type veth peer name ${INTERFACE}_2"
 sudo $command
 if_err_exit $?
-
-command="ip link add $INTERFACE type dummy"
-sudo $command
-if_err_exit $?
-
-command="ip addr add $IP_ADDR/$NET_MASK dev $INTERFACE"
-sudo $command
-if_err_exit $?
-
-command="ifconfig $INTERFACE up"
-sudo $command
-if_err_exit $?
-
-
