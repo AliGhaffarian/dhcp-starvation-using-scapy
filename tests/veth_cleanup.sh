@@ -11,8 +11,6 @@ if_err_exit () {
 
 ERROR_TEMPLATE="failed to"
 INTERFACE="$1"
-IP_ADDR="$2"
-NET_MASK="$3"
 
 if [ $# -ne 3 ];then
 		echo  usage : $0 interface_name ip_address netmask 
@@ -20,5 +18,5 @@ if [ $# -ne 3 ];then
 fi
 
 command="ip link del ${INTERFACE}_1 type veth peer name ${INTERFACE}_2"
-sudo $command
+$command
 if_err_exit $?
