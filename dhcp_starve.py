@@ -35,7 +35,6 @@ def handle_args(args):
                         will use info if none provided""", default=20, type=int)
     parser.add_argument('--keep_alive_sleep_time', help="amount of time between a wave of icmps for keeping alive", default=0, type = int)
     args = parser.parse_args()
-    args.ttl = 64
     conf.iface = args.interface
     if not args.sniff_interface:
         args.interface
@@ -51,7 +50,7 @@ def handle_args(args):
 
 if __name__ == "__main__":
     args = handle_args(sys.argv)
-    dhcp.args = args
+    dhcp.SNIFF_INTERFACE = args.sniff_interface
 
     logging.basicConfig(filename=args.log_file, level=args.log_level)
 

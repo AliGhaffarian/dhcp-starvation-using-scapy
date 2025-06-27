@@ -1,10 +1,10 @@
 #!/bin/python3
 import sys
-sys.path.append('..')
-
-import dhcp
+import ipaddress
 from scapy.all import *
-
+sys.path.append('..')
+import dhcp
+import random
 
 
 
@@ -28,3 +28,25 @@ for packet in bad_dhcp_list:
 
 
 assert dhcp.is_dhcp(not_dhcp) == False
+
+bad_pkt_templates= [ \
+        IP() / Ether() / UDP(),
+        Ether() / IP() / TCP(),
+        Ether(),
+        IP(),
+        UDP(),
+        Ether() / UDP() / IP(),
+        Ether() / UDP() / IP() / BOOTP(),
+        Ether() / UDP() / IP() / BOOTP() / DHCP(),
+        DHCP() / Ether() / IP () / UDP()
+        ]
+
+for pkt in bad_pkt_templates:
+    random_ip = str(
+            ipaddress.IPv4Address(random.randint(0, (2 ** 32) - 1))
+            )
+    err_code = dhcp.starve_ips(
+            random_ip,
+            str(RandMAC()),
+            pkt_to_use=pkt)
+    assert err_code == -1
