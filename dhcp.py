@@ -253,10 +253,8 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
 
     logger.info(f"{function_name} : starving {ips_to_starve} IPs from {server_ip} , {server_mac}")
 
-    i = 0
-    
     time_to_wait = 1
-
+    attempt_n = 0
     while (len(occupied_ips) < ips_to_starve):
         
         time.sleep(time_to_wait)
@@ -266,8 +264,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
             logger.info(f"{function_name} : keeping alive while starving")
             keep_alive_thread.start()
 
-        logger.info(f"{function_name} : attempt {i} captured {len(occupied_ips)} IP's time_to_wait {time_to_wait}")
-        i += 1
+        logger.info(f"{function_name} : attempt {attempt_n} captured {len(occupied_ips)} IP's time_to_wait {time_to_wait}")
 
         mac_template = mac.macs[random.randint(0,len(mac.macs) - 1)][0]
 
@@ -317,6 +314,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         
         if(time_to_wait >= 2):
             time_to_wait -= 1
+        attempt_n += 1
     return occupied_ips
 
 
