@@ -4,8 +4,8 @@ if_err_exit () {
 
 	if [ $1 -ne 0 ];then
 			echo $ERROR_TEMPLATE $command err_code : $1
+			exit $1
 	fi
-
 }
 
 
@@ -34,3 +34,5 @@ if_err_exit $?
 command="ip link set ${INTERFACE}_2 up"
 $command
 if_err_exit $?
+
+sleep 3
