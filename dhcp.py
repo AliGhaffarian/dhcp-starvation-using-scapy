@@ -297,7 +297,8 @@ def starve_ips( server_ip : str,server_mac : str ,interface : str = conf.iface ,
             time_to_wait += 1
             try:
                 keep_alive_thread.join()
-            except:1
+            except:
+                pass
             continue
         
         offered_ip = sniffed_offer[0][BOOTP].yiaddr
@@ -319,7 +320,8 @@ def starve_ips( server_ip : str,server_mac : str ,interface : str = conf.iface ,
 
             keep_alive_thread.join()
 
-        except:1
+        except:
+            pass
         
         if(time_to_wait >= 2):
             time_to_wait -= 1
