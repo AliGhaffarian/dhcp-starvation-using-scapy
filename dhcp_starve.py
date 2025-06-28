@@ -20,7 +20,6 @@ def handle_args(args):
     parser.add_argument('--server_ip', required=True, help='Required IP address of the server')
     parser.add_argument('--ips_to_starve', type=int, required=True,help='Required Amount of IPs to occupy')
     parser.add_argument('--server_mac', help='MAC address of the server')
-    parser.add_argument('--sniff_interface', required=False, help=f"Network interface to sniff on. Will use --interface by default")
     parser.add_argument('--interface', required=False, help=f"Network interface to use. Will use {conf.iface} (conf.iface) in case none provided", default = conf.iface)
     parser.add_argument('--keep_alive_while_starving', action='store_true', required=False, help=f"Keep starved IP's alive while starvation")
     parser.add_argument('--keep_alive', action='store_true',required=False, help=f"Keep starved IP's alive after starvation")
@@ -36,8 +35,6 @@ def handle_args(args):
     parser.add_argument('--keep_alive_sleep_time', help="amount of time between a wave of icmps for keeping alive", default=0, type = int)
     args = parser.parse_args()
     conf.iface = args.interface
-    if not args.sniff_interface:
-        args.interface
     if args.debug:
         args.log_level = 10
     if args.server_mac is None:
@@ -50,7 +47,6 @@ def handle_args(args):
 
 if __name__ == "__main__":
     args = handle_args(sys.argv)
-    dhcp.SNIFF_INTERFACE = args.sniff_interface
 
     logging.basicConfig(filename=args.log_file, level=args.log_level)
 
@@ -59,7 +55,6 @@ if __name__ == "__main__":
     occupied_ips = dhcp.starve_ips(args.server_ip,
                                    args.server_mac,
                                    conf.iface,
-                                   args.sniff_interface,
                                    args.ips_to_starve,
                                    args.keep_alive)
     logger.info('Got these IPs')
