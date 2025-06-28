@@ -86,8 +86,16 @@ if __name__ == "__main__":
     dhcp.conf.verb = False
 
     print('initing')
-    for func in init_funcs:
-        func()
+    try:
+        for func in init_funcs:
+            func()
+    except:
+        print('init failed, trying to clean up and then init again')
+        for func in cleanup_funcs:
+            func()
+
+        for func in init_funcs:
+            func()
 
     scapy.all.conf.ifaces.reload()
     server_mac = scapy.all.conf.ifaces[DHCP_SERVER_VETH_NAME].mac
