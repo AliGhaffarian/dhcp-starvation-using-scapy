@@ -35,6 +35,9 @@ def handle_args(args):
     parser.add_argument('--keep_alive_sleep_time', help="amount of time between a wave of icmps for keeping alive", default=0, type = int)
     args = parser.parse_args()
     conf.iface = args.interface
+
+    #TODO add keep_alive_sleep_time arg
+    args.keep_alive_sleep_time = 2
     if args.debug:
         args.log_level = 10
     if args.server_mac is None:
@@ -68,4 +71,4 @@ if __name__ == "__main__":
     if args.keep_alive :
         while(True):
             keepalive.keep_ips_alive_icmp(occupied_ips, args.server_ip, args.server_mac)
-            time.sleep(dhcp.args.keep_alive_sleep_time)
+            time.sleep(args.keep_alive_sleep_time)
